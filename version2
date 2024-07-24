@@ -1,0 +1,77 @@
+import requests
+from bs4 import BeautifulSoup
+import selenium
+from geopy import Nominatim
+import folium
+
+# create Nominatim class
+locator = Nominatim(user_agent="Geopy Library")
+
+# get location
+getLoc = locator.geocode("Oslo")
+if getLoc:
+    print(getLoc.address)
+    print(getLoc.latitude, "\n")
+    print(getLoc.longitude)
+    latitude = getLoc.latitude
+    longitude = getLoc.longitude
+
+    #  ist of locations
+    location_coords = float(latitude), float(longitude)
+
+    # make map
+    map = folium.Map(location=location_coords, width=1000, height=1000)
+
+    # mark map
+    folium.Marker(location_coords, popup="Oslo city center").add_to(map)
+else:
+    print("Geocode failed for Oslo")
+    exit()
+
+url = "https://www.finn.no/realestate/lettings/search.html?location=0.20061"
+page = requests.get(url)
+
+soup = BeautifulSoup(page.content, "html.parser")
+
+
+# Find house
+def house():
+    element = soup.find(id="page-results")
+    houses = element.find_all(
+        class_="col-span-2 mt-16 flex justify-between sm:mt-4 sm:block space-x-12 font-bold whitespace-nowrap")
+    address = element.find_all(class_="text-14 text-gray-500")
+    print(houses[0].text)
+    n = 0  # House id
+
+
+    # House address, price and size in m^2
+    for price in houses:
+        if n >= len(address):
+            print(f"Address list index {n} out of range")
+            break
+
+        if address[n].text == "Oslo":
+            n += 1
+            continue
+        else:
+            print(address[n].text, n)
+            size, sep, amount = price.text.partition('m²')
+            new_amount = amount.rstrip("kr")
+            print(amount.rstrip("kr"), n)
+            print(size, sep, n)
+            print("  ")
+
+            # Geocode the address
+            getLoc = locator.geocode(address[n].text.strip())
+            if getLoc:
+                folium.Marker([getLoc.latitude, getLoc.longitude],
+                              popup=f"{address[n].text.strip()}, {new_amount}kr per month, {size}m²").add_to(map)
+            else:
+                print(f"Geocode failed for address: {address[n].text.strip()}")
+            n += 1
+    # open map in browser
+    map.show_in_browser()
+
+
+house()
+
